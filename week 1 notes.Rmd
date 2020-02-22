@@ -1,0 +1,231 @@
+---
+title: "Meeting Notes"
+author: "Joshua delabruere"
+date: "2/15/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+First we begin by calling libraries that we want to use. 
+I'm loading the whole tidyverse which includes several libaries like 
+
+* ggplot2: Graphics
+* dplyr: data manipulation (SQL like)
+* tidyr: data tidying/ organizing
+* stringr: for string operations
+```{r cars}
+library(tidyverse)
+library(randomForest)
+library(factoextra)
+```
+
+
+Next, we should load the data. Today we're looking at the wine dataset which we found at https://www.kaggle.com/brynja/wineuci 
+
+I've loaded the data on the shared drive
+
+
+I've opted to use the readr packages ```read_csv()``` function. It has faster read time and leaves more things as characters which avoids changing variables like dates before we decide on a format. This function takes a filepath and reads the data, returning a *data frame* which is matrix like in structure. 
+```{r}
+wine <- readr::read_csv("wine.csv", col_names = F)
+head(wine)
+```
+
+
+This data set came without headers, so we'll have to add column names by themselves. We can do this by creating a *vector*. A vector is a list, but all items must be the same type. A data frame is composed of vectors of the same length. Each vector represents a variable in a data frame. 
+
+we can create a vector using ``` c(item1, item2, ... itemn) ``` 
+
+Remember in R we use ``` <- ``` instead of `=` for variable asignment like ```variable <- 1+4```. We can use ```=``` for assignment, but R best practices discourages this and reserves ```=``` for equivelence checks. 
+
+variables names are as follows:
+
+* cultivar: The varaity of wine
+* alcohol: 
+* malic_acid: 
+* ash 
+* alcalinity_ash
+* magnesium 
+* total_phenols 
+* flavanoids 
+* non_flavnoid_phenols
+* proanthocyanins
+* color_intensity
+* hue
+* od
+* proline
+
+We can also use the function ```names(data_frame_name)``` to access the column names of a data frame. We will assign our list of variable names to the names of our data frame. 
+
+```{r}
+varNames <- c('cultivar', 'alcohol', 'malic_acid', 'ash', 'alcalinity_ash', 'magnesium', 'total_phenols', 'flavanoids', 'non_flavnoid_phenols', 'proanthocyanins', 'color_intensity', 'hue', 'od', 'proline')
+
+names(wine) <- varNames
+
+head(wine)
+
+```
+
+Next lets get the summary statistics of our data set.  We can use the ```summary()``` command to get summary statistics.
+
+```{r}
+summary(wine)
+```
+Notice that cultivar is being treated as a number rather than a factor. We can fix that using ```as.factor()```. We can directly access a column in the data frame using ```df$varName``` so for us, ```wine$cultivar``` **Or** we can use ```wine[,1]```
+
+
+```{r}
+wine$cultivar <- as.factor(wine$cultivar)
+summary(wine)
+```
+
+We can use data visualization to examine the relationships between various variables. I used a heatmap to look at how correlated the various columns were. for correlation we need all columns to be numeric, so let's exclude column 1 from our data set using ```wine[,-c(1)]``` we can remove the values I've set to na for slight clustering with dendograms
+
+```{r}
+heatmap(cor(wine[,-c(1)]), Rowv = NA, Colv = NA)
+heatmap(cor(wine[,-c(1)]), Rowv = NA)
+heatmap(cor(wine[,-c(1)]), Colv = NA)
+heatmap(cor(wine[,-c(1)]))
+```
+
+Looking at the darker squares we can see which variables are closely related. 
+
+
+We can also plot the data set to create a cor plot using ```plot(wine)```
+
+Play around with the variables you include as this is pretty cluttered. You can exclude variables by putting a negative vector ```-c(1,2,3)``` exculudes the first 3 columns. You can also specifically include variables by using a regular vector ``` c(4,5,6)``` includes the columns 4,5, and 6. 
+
+```{r}
+plot(wine)
+```
+
+
+We want to classify today, and the easiest column to do that with is cultivar. However, we have 3 categories, which while possible, is a little more indepth than a binary classification. lets use dplyr functions to create a new variable wine_type where we're trying to identify wines from cultivar #2
+
+dplyr (and the rest of tidyverse) use the *`%>%`* operator which is refered to as piping to pass a *data frame* like object called a *tibble* between functions which have the first argument of data and return a data frame/tibble. I think this is easier to understand in practice, so look at the example below. For this problem we're using ```mutate()``` to create a new variable and  ```select()``` to select columns.  
+
+For simplicity sake in the example, lets select only 3 predictors: flavanoids, hue, and alcohol
+
+
+```{r}
+wine %>%
+  mutate(wine_type = if_else(cultivar==2, 1,0)) %>%
+  select(wine_type, flavanoids, hue, alcohol) %>%
+  na.omit()-> classification_df
+
+head(classification_df)
+```
+
+let's plot some scatterplots to look at how the seperation of our groups looks. I'm using ggplot 2, where you set asthetics in aes()
+```{r}
+classification_df %>%
+  ggplot(aes(x=flavanoids, y=alcohol, color=as.factor(wine_type)))+
+  geom_point()+
+  theme_minimal()+
+  theme(legend.position = "bottom")
+
+classification_df %>%
+  ggplot(aes(x=flavanoids, y=hue, color=as.factor(wine_type)))+
+  geom_point()+
+  theme_minimal()+
+  theme(legend.position = "bottom")
+
+classification_df %>%
+  ggplot(aes(x=hue, y=alcohol, color=as.factor(wine_type)))+
+  geom_point()+
+  theme_minimal()+
+  theme(legend.position = "bottom")
+```
+
+
+Lets's split the data into a training set and validation set. We can use tidyverse functions for this as well. 
+
+
+```{r}
+
+summary(classification_df)
+classification_df$wine_type <- as.factor(classification_df$wine_type)
+
+classification_df %>%
+  mutate(id = row_number())-> classification_df
+
+
+set.seed(420)
+
+classification_df %>%
+  sample_frac(.6) -> train
+
+classification_df %>%
+  anti_join(train, by= 'id') -> test
+
+length(train$id)
+length(test$id)
+
+
+```
+
+
+
+
+## Lets do logisitic regression to classify
+
+
+```{r}
+ourlogit <- glm(wine_type~flavanoids+alcohol+hue, data = train, family=binomial)
+
+summary(ourlogit)
+
+```
+
+Lets test how well our model preforms
+```{r}
+prediction <- predict(ourlogit, newdata = test)
+
+regclass::confusion_matrix(ourlogit)
+
+```
+
+
+Specificity, sensitivity can be calulated from this table
+
+sensiticity is (TP/(TP+FN))
+```{r}
+40/(44)
+```
+
+Specificity = (TN/(TN/FP))
+```{r}
+58/(63)
+```
+
+## Lets do Random Forest
+
+```{r}
+set.seed(42)
+our_rf <- randomForest(wine_type~flavanoids+alcohol+hue, data = train)
+
+
+summary(our_rf)
+
+prediction <- predict(our_rf, newdata = test)
+prediction2 <- predict(our_rf, newdata = train)
+
+trained <- data.frame(prediction2, train$wine_type)
+
+
+
+
+tested <- data.frame(prediction, test$wine_type )
+
+tested %>%
+  mutate(same=if_else(prediction == test.wine_type, 1, 0)) %>%
+  group_by(prediction, test.wine_type)%>%
+  summarise(count=sum(same))
+
+plot(our_rf)
+
+```
+

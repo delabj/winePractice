@@ -1,0 +1,17 @@
+---
+title: "Quick Demo"
+output: html_notebook
+---
+ # EDA with R
+ 
+ 
+ ###Step 1 
+ We want to call our libraries. Put any library calls up top in this code chunk
+
+
+
+```{r}
+library(tidyverse)
+
+```
+
