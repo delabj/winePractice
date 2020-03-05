@@ -18,6 +18,7 @@ I'm loading the whole tidyverse which includes several libaries like
 * stringr: for string operations
 ```{r cars}
 library(tidyverse)
+library(tidymodels)
 library(randomForest)
 library(factoextra)
 ```
@@ -153,13 +154,17 @@ classification_df %>%
   mutate(id = row_number())-> classification_df
 
 
-set.seed(420)
+set.seed(42)
+rsample::initial_split(classification_df, prop = .6)-> wine_split
+rsample::training(wine_split) -> train
+rsample::testing(wine_split) -> test
 
-classification_df %>%
-  sample_frac(.6) -> train
 
-classification_df %>%
-  anti_join(train, by= 'id') -> test
+# classification_df %>%
+#   sample_frac(.6) -> train
+# 
+# classification_df %>%
+#   anti_join(train, by= 'id') -> test
 
 length(train$id)
 length(test$id)
@@ -174,7 +179,12 @@ length(test$id)
 
 
 ```{r}
-ourlogit <- glm(wine_type~flavanoids+alcohol+hue, data = train, family=binomial)
+
+
+our_logit <- logistic_reg( mode= "classification") %>%
+  fit(wine_type~.,data = train)
+
+#ourlogit <- glm(wine_type~flavanoids+alcohol+hue, data = train, family=binomial())
 
 summary(ourlogit)
 
@@ -182,9 +192,14 @@ summary(ourlogit)
 
 Lets test how well our model preforms
 ```{r}
-prediction <- predict(ourlogit, newdata = test)
+predictions_glm <- our_logit %>%
+  predict(new_data = test) %>%
+  bind_cols(test %>% select(wine_type))
 
-regclass::confusion_matrix(ourlogit)
+
+
+predictions_glm %>%
+  conf_mat(wine_type, .pred_class) 
 
 ```
 
@@ -193,39 +208,60 @@ Specificity, sensitivity can be calulated from this table
 
 sensiticity is (TP/(TP+FN))
 ```{r}
-40/(44)
+44/47
 ```
 
 Specificity = (TN/(TN/FP))
 ```{r}
-58/(63)
+24/(24)
 ```
+
+
+
 
 ## Lets do Random Forest
 
+
+
+
+
+
+
 ```{r}
 set.seed(42)
-our_rf <- randomForest(wine_type~flavanoids+alcohol+hue, data = train)
+our_rf <- rand_forest(mode="classification", trees = 2000) %>%
+  set_engine("ranger", importance = "impurity") %>%
+  fit(wine_type~., train)
 
 
 summary(our_rf)
 
-prediction <- predict(our_rf, newdata = test)
-prediction2 <- predict(our_rf, newdata = train)
+prediction_RF <- predict(our_rf, new_data = test) %>%
+    bind_cols(test %>% select(wine_type))
 
-trained <- data.frame(prediction2, train$wine_type)
+prediction_RF %>%
+  conf_mat(wine_type, .pred_class)
 
 
 
 
-tested <- data.frame(prediction, test$wine_type )
 
-tested %>%
-  mutate(same=if_else(prediction == test.wine_type, 1, 0)) %>%
-  group_by(prediction, test.wine_type)%>%
-  summarise(count=sum(same))
-
-plot(our_rf)
 
 ```
 
+
+#Cart
+
+```{r}
+
+our_cart <- decision_tree(mode="classification") %>%
+  fit(wine_type~., train)
+
+prediction_cart <- our_cart %>%
+  predict(test) %>%
+  bind_cols(test %>% select(wine_type))
+
+prediction_cart %>%
+    conf_mat(wine_type, .pred_class)
+
+```
