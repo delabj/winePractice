@@ -186,7 +186,7 @@ our_logit <- logistic_reg( mode= "classification") %>%
 
 #ourlogit <- glm(wine_type~flavanoids+alcohol+hue, data = train, family=binomial())
 
-summary(ourlogit)
+summary(our_logit)
 
 ```
 
